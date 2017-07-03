@@ -484,7 +484,9 @@ class AvgPool(Module):
             pad_cols = (cols_out - 1) * stride_h + ksize_c_eff - cols_in
 
         pad_rows, pad_cols = max(0, pad_rows), max(0, pad_cols)
-
+        
+        rows_out, cols_out = max(1, rows_out), max(1, cols_out)
+        
         grad_expanded = array_ops.transpose(
             array_ops.reshape(grad, (batch_size, rows_out,
                                      cols_out, ksize_r, ksize_c, channels)),
@@ -525,6 +527,5 @@ class AvgPool(Module):
             jac, (rows_in, cols_in, batch_size, channels)
         )
         grad_out = array_ops.transpose(grad_out, (2, 0, 1, 3))
-        
         return grad_out
 

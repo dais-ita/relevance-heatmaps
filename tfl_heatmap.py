@@ -35,25 +35,23 @@ import pdb
 import scipy.io as sio
 
 from TFL_Data import TFLData
-from MNIST_Data import MnistData
 
 flags = tf.flags
 logging = tf.logging
 
-flags.DEFINE_integer("max_steps", 200,'Number of steps to run trainer.')
+flags.DEFINE_integer("max_steps", 1,'Number of steps to run trainer.')
 flags.DEFINE_integer("batch_size", 100,'Number of steps to run trainer.')
-flags.DEFINE_integer("test_every", 10,'Number of steps to run trainer.')
-flags.DEFINE_integer("image_dim", 56,'Width of square input images')
+flags.DEFINE_integer("test_every", 1,'Number of steps to run trainer.')
+flags.DEFINE_integer("image_dim", 200,'Width of square input images')
 flags.DEFINE_integer("output_dim", 2,'Dimension of output layer')
 flags.DEFINE_float("learning_rate", 0.01,'Initial learning rate')
 flags.DEFINE_float("dropout", 0.9, 'Keep probability for training dropout.')
 flags.DEFINE_string("data_dir", 'data','Directory for storing data')
 flags.DEFINE_string("summaries_dir", 'tfl_convolutional_logs','Summaries directory')
-flags.DEFINE_boolean("relevance", False,'Compute relevances')
+flags.DEFINE_boolean("relevance", True,'Compute relevances')
 flags.DEFINE_string("relevance_method", 'simple','relevance methods: simple/eps/w^2/alphabeta')
 flags.DEFINE_boolean("save_model", False,'Save the trained model')
 flags.DEFINE_boolean("reload_model", False,'Restore the trained model')
-#flags.DEFINE_string("checkpoint_dir", 'mnist_convolution_model','Checkpoint dir')
 flags.DEFINE_string("checkpoint_dir", 'tfl_model','Checkpoint dir')
 flags.DEFINE_string("checkpoint_reload_dir", 'tfl_model','Checkpoint dir')
 
@@ -67,11 +65,15 @@ def nn():
 
                        Convolution(output_depth=25,stride_size=1, act ='relu', pad='VALID'),
                        AvgPool(),
-                        
-                       Convolution(output_depth=25,stride_size=1, act ='relu', pad='VALID'),
+
+                       Convolution(output_depth=50,stride_size=1, act ='relu', pad='VALID'),
                        AvgPool(),
+
+                       Convolution(output_depth=100,stride_size=1, act ='relu', pad='VALID'),
+                       AvgPool(),
+
                                                 
-                       Convolution(kernel_size=4,output_depth=100,stride_size=1, act ='relu', pad='VALID'),
+                       Convolution(kernel_size=4,output_depth=200,stride_size=1, act ='relu', pad='VALID'),
                        AvgPool(),
                        
                        Convolution(kernel_size=1, output_depth=FLAGS.output_dim,stride_size=1, pad='VALID'),
@@ -95,14 +97,7 @@ def train():
   train_file_path = str(FLAGS.image_dim)+"_train_y.csv"
   test_file_path = str(FLAGS.image_dim)+"_test_y.csv"
 
-  mnist = TFLData( (train_file_path,test_file_path) )
-
-  # train_file_path = "mnist_train.csv"
-  # test_file_path = "mnist_test.csv"
-
-  # mnist = MnistData( (train_file_path,test_file_path) )
-
-  
+  data_set = TFLData( (train_file_path,test_file_path) )
 
   config = tf.ConfigProto(allow_soft_placement = True)
   config.gpu_options.allow_growth = True
@@ -118,6 +113,7 @@ def train():
     with tf.variable_scope('model'):
         net = nn()
         inp = tf.pad(tf.reshape(x, [FLAGS.batch_size,FLAGS.image_dim,FLAGS.image_dim,1]), [[0,0],[2,2],[2,2],[0,0]])
+        #inp = tf.reshape(x, [FLAGS.batch_size,FLAGS.image_dim,FLAGS.image_dim,1])
         op = net.forward(inp)
         y = tf.squeeze(op)
         
@@ -154,11 +150,14 @@ def train():
 
     for i in range(FLAGS.max_steps):
         if i % FLAGS.test_every == 0:  # test-set accuracy
-            d = feed_dict(mnist, False)
+            d = feed_dict(data_set, False)
             test_inp = {x:d[0], y_: d[1], keep_prob: d[2]}
             #pdb.set_trace()
             summary, acc , relevance_test, rel_layer= sess.run([merged, accuracy, LRP, relevance_layerwise], feed_dict=test_inp)
             
+            print_y = tf.argmax(y,1)
+            y_labels = print_y.eval(feed_dict=test_inp)
+
             test_writer.add_summary(summary, i)
             print('Accuracy at step %s: %f' % (i, acc))
             # print([np.sum(rel) for rel in rel_layer])
@@ -169,7 +168,7 @@ def train():
                 utils.save_model()
 
         else:  
-            d = feed_dict(mnist, True)
+            d = feed_dict(data_set, True)
             inp = {x:d[0], y_: d[1], keep_prob: d[2]}
             summary, _ , relevance_train,op, rel_layer= sess.run([merged, trainer.train, LRP,y, relevance_layerwise], feed_dict=inp)
             train_writer.add_summary(summary, i)
@@ -182,7 +181,7 @@ def train():
         # plot test images with relevances overlaid
         images = test_inp[test_inp.keys()[0]].reshape([FLAGS.batch_size,FLAGS.image_dim,FLAGS.image_dim,1])
         #images = (images + 1)/2.0
-        plot_relevances(relevance_test.reshape([FLAGS.batch_size,FLAGS.image_dim,FLAGS.image_dim,1]), images, test_writer )
+        plot_relevances(relevance_test.reshape([FLAGS.batch_size,FLAGS.image_dim,FLAGS.image_dim,1]), images, test_writer, y_labels )
         
         # plot train images with relevances overlaid
         # relevance_train = relevance_train[:,2:30,2:30,:]

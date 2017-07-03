@@ -39,7 +39,7 @@ def visualize(relevances, images_tensor=None, name='',y_labels =''):
             
             for i,rel_img in enumerate(rel_imgs):
 
-                cv2.putText(rel_img,str(y_labels[i]), (2,30), cv2.FONT_HERSHEY_SIMPLEX, 1, 255)
+                cv2.putText(rel_img,str(y_labels[i]), (2,30), cv2.FONT_HERSHEY_SIMPLEX, 1, 125)
                 
                 rel_imgs[i] = cv2.cvtColor((np.asarray(rel_img,dtype='float32') *255).astype(np.uint8), cv2.COLOR_RGB2BGR)
                 #output to directory:
